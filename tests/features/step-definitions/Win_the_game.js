@@ -1,66 +1,68 @@
-import { Given, When, Then } from '@cucumber/cucumber';
+import { Given, When, Then, world } from '@cucumber/cucumber';
 import { expect } from 'chai';
-// import { By, until, Key } from 'selenium-webdriver';
+import {
+  getWhereIAm,
+  navigateTo,
+  getAllCurrentMenuChoices,
+  getMenuChoiceElement,
+  checkIfDescriptionContainsString,
+  cheatIfNeeded,
+} from './helpers.js';
 
-Given('that I have started the game by navigating to {string}', async function (url) {
-  await this.driver.get(url);
-  // Important: wait for the relevant DOM element(s) to exist
-  // - we should choose to wait for an element we expect to only be in the DOM
-  //   with correct content/text to verify that the app has fully loaded
-  await this.getByXPathWait('/descendant::*[@class="health"]//*[contains(text(), "50")]');
-});
-
-// Note: This step checks both health, money and consumed espresso shots....
 Then('the value of my {string} should be {float}', async function (statusType, expectedNumValue) {
-  // Translate statusType (Health, Money, Espressos) to cssSelector (.health, .money., .espressoCups)
-  let cssSelector = '.' + statusType.toLowerCase();
-  if (cssSelector === '.espressos') { cssSelector = '.espressocups'; }
-  // Convert the selector so it only grabs the child element .progress
-  cssSelector += ' .progress';
-  // Grab the element and the text inside it and conver to a number (using +)
-  let element = await this.get(cssSelector);
-  let numValue = +(await element.getText());
-  // Check world the value is correct
+  const selectorMap = {
+    Health: '.health .progress',
+    Money: '.money .progress',
+    Espressos: '.espressocups .progress',
+  };
+  const cssSelector = selectorMap[statusType];
+  const element = await this.get(cssSelector);
+  const numValue = +(await element.getText());
   expect(numValue).to.equal(expectedNumValue);
 });
 
 Then('my hipster bag should contain {string}', async function (expectedBagContent) {
-  // Get the element with the bag content
-  let bagElement = await this.get('.bag-content');
-  // Get the text and trim from spaces at beginning and end
-  let bagContent = (await bagElement.getText()).trim();
-  // Check the bag content is correct
+  const bagElement = await this.get('.bag-content');
+  const bagContent = (await bagElement.getText()).trim();
   expect(bagContent).to.equal(expectedBagContent);
 });
 
-Given('that my position is {string}', async function (a) {
-  // TODO: implement step
-});
-
-Given('that I make the choice to {string}', async function (a) {
-  // TODO: implement step
-});
-
-Then('my position should be {string}', async function (a) {
-  // TODO: implement step
+Given('that I make the choice to {string}', async function (choice) {
+  const menuChoiceElement = await getMenuChoiceElement(this, choice);
+  await menuChoiceElement.click();
 });
 
 Given('that I know my current health', async function () {
-  // TODO: implement step
+  const healthElement = await this.get('.health .progress');
+  this.previousHealth = parseInt(await healthElement.getText(), 10);
 });
 
-When('I wait for the event {string} to take place', async function (a) {
-  // TODO: implement step
+When('I wait for the event {string} to take place', async function (eventDescription) {
+  const waitButton = await getMenuChoiceElement(this, 'Wait');
+  await waitButton.click();
+  await checkIfDescriptionContainsString(this, eventDescription);
 });
 
-Then('my health should be {string}', async function (a) {
-  // TODO: implement step
+Then('my health should be {string}', async function (condition) {
+  const healthElement = await this.get('.health .progress');
+  const currentHealth = parseInt(await healthElement.getText(), 10);
+
+  if (condition === 'unchanged') {
+    expect(currentHealth).to.equal(this.previousHealth);
+  } else if (condition === 'less or same as before') {
+    expect(currentHealth).to.be.at.most(this.previousHealth);
+  } else if (condition.includes('more than before')) {
+    const increment = parseInt(condition.split(' ')[0], 10);
+    expect(currentHealth).to.equal(this.previousHealth + increment);
+  }
+  this.previousHealth = currentHealth;
 });
 
 Given('that I know my current menu choices', async function () {
-  // TODO: implement step
+  const { choices } = await getAllCurrentMenuChoices(this);
+  this.menuChoices = choices;
 });
 
-Then('I should be given the new choice {string}', async function (a) {
-  // TODO: implement step
+Then('I should be given the new choice {string}', async function (newChoice) {
+  expect(this.menuChoices).to.include(newChoice);
 });
