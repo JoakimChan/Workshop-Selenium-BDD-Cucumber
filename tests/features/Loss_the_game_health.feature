@@ -28,4 +28,5 @@ Feature: Loss the game by health
         When I wait for the event "You health has deteriorated too much" to take place
         Then the value of my Health should be 0
         And the text should contain "you feel almost dead"
+        And that I know my current menu choices
         And I should be given the new choice "Play again"
